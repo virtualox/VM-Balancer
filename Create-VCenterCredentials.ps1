@@ -7,6 +7,15 @@
     and saves the encrypted password along with the username to a specified file. This setup allows multiple administrators
     or automated tasks to access shared credentials securely.
 
+.AUTHOR
+    virtualox
+
+.GITHUB_REPOSITORY
+    https://github.com/virtualox/VM-Balancer
+
+.LICENSE
+    This script is licensed under the GPL-3.0 License. See the LICENSE file for more information.
+
 .USAGE
     .\Create-VCenterCredentials.ps1
 
