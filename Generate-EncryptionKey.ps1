@@ -6,6 +6,15 @@
     This script creates a 256-bit (32-byte) encryption key using a cryptographically secure random number generator.
     The key is saved to a specified file path and should be securely stored with restricted access permissions.
 
+.AUTHOR
+    virtualox
+
+.GITHUB_REPOSITORY
+    https://github.com/virtualox/VM-Balancer
+
+.LICENSE
+    This script is licensed under the GPL-3.0 License. See the LICENSE file for more information.
+
 .USAGE
     .\Generate-EncryptionKey.ps1
 
