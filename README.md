@@ -2,6 +2,7 @@
 
 ![VMware-vCenter](https://img.shields.io/badge/VMware-vCenter-blue)
 ![PowerShell](https://img.shields.io/badge/PowerShell-%5E5.1-blue)
+![License: GPL v3](https://img.shields.io/badge/License-GPLv3-green.svg)
 
 Automate the balancing of virtual machines (VMs) across hosts in a VMware vCenter cluster, ensuring no host exceeds a specified VM limit. This solution leverages PowerCLI scripts to streamline VM distribution while maintaining security through encrypted credential management. Additionally, it includes robust exclusion mechanisms to protect critical or specialized VMs from unintended migrations and an enhanced dry-run feature for safer script execution.
 ## Features
