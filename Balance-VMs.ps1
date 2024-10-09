@@ -7,6 +7,15 @@
     and migrates VMs to underloaded hosts to maintain a balanced distribution. It excludes specified VMs from migration
     based on their names or assigned tags. Additionally, it includes an enhanced dry-run mode to simulate migrations safely.
 
+.AUTHOR
+    virtualox
+
+.GITHUB_REPOSITORY
+    https://github.com/virtualox/VM-Balancer
+
+.LICENSE
+    This script is licensed under the GPL-3.0 License. See the LICENSE file for more information.
+
 .USAGE
     .\Balance-VMs.ps1 [-DryRun]
 
