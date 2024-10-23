@@ -309,7 +309,7 @@ Set-Acl -Path $credFile -AclObject $acl
   * **Solution:** Ensure that the credentials file exists at the specified path and was created by the same user on the current machine.
 
 * **Cluster Not Found:**
-  * **Issue:* Script reports that the specified cluster was not found.
+  * **Issue:** Script reports that the specified cluster was not found.
   * **Solution:** Verify the `$clusterName` variable is correctly set to the exact name of your target cluster.
 
 * **VM Migration Failures:**
