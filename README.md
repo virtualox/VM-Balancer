@@ -26,6 +26,8 @@ Before using the VM Balancer scripts, ensure the following prerequisites are met
 - **vCenter Server Access:** Administrative credentials with permissions to manage VMs and hosts within the target cluster.
 - **Windows Environment:** Scripts are designed to run on Windows systems.
 
+**Important:** You must run this script in a PowerShell session with **administrative privileges** to allow it to set the necessary file permissions.
+
 ## Installation
 
 1. **Clone the Repository:**
@@ -58,7 +60,7 @@ Before using the VM Balancer scripts, ensure the following prerequisites are met
 
 This repository contains three primary PowerShell scripts:
 
-### 1. Generate-EncryptionKey.ps1
+### 1. [Generate-EncryptionKey.ps1](./Generate-EncryptionKey.ps1)
 
 **Purpose:**
 
@@ -74,20 +76,27 @@ This script creates a 256-bit (32-byte) encryption key using a cryptographically
 
 1. **Configure the Script:**
    * Open `Generate-EncryptionKey.ps1` in a text editor.
-   * Update the $encryptionKeyPath variable to specify where you want to store the encryption key. Ensure this directory is secure and accessible to all intended administrators or automated tasks.
+   * Update the $encryptionKeyPath variable to specify where you want to store the encryption key. If the parameter is not defined the default path `C:\Secure\Credentials\encryptionKey.key` will be used.
 
 2. **Run the Script:**
-   Open PowerShell with administrative privileges and execute:
+   * Open PowerShell **as an Administrator**.
+   * Navigate to the directory containing `Generate-EncryptionKey.ps1`.
+   * Execute the script:
    ```powershell
    .\Generate-EncryptionKey.ps1
    ```
-   **Note:** If an encryption key already exists at the specified path, the script will prompt you to confirm overwriting it.
+   **Note:**
+   * To specify a custom path for the encryption key, use the -EncryptionKeyPath parameter:
+   ```powershell
+   .\Generate-EncryptionKey.ps1 -EncryptionKeyPath "D:\Keys\MyEncryptionKey.key"
+   ```
+   * If an encryption key already exists at the specified path, the script will prompt you to confirm overwriting it.
 
 3. **Secure the Encryption Key:**
-   
-   The script sets the file permissions so that only the current user has full control. Ensure that this file is stored in a secure location and is not accessible to unauthorized users.
+   * The script sets the file permissions so that only the current user has full control over the encryption key file.
+   * Ensure that the encryption key file is stored in a secure location and is not accessible to unauthorized users.
 
-### 2. Create-VCenterCredentials.ps1
+### 2. [Create-VCenterCredentials.ps1](./Create-VCenterCredentials.ps1)
 
 **Purpose:**
 
@@ -123,7 +132,7 @@ This script prompts the user to enter vCenter credentials, encrypts the password
 
    The script sets file permissions so that only the current user has full control. Ensure that the credentials file is stored in a secure location and is not accessible to unauthorized users.
 
-### 3. Balance-VMs.ps1
+### 3. [Balance-VMs.ps1](./Balance-VMs.ps1)
 
 **Purpose:**
 
@@ -246,28 +255,44 @@ After execution, verify that the VMs have been appropriately distributed across 
 
 ## **Security Considerations**
 * **Encrypted Credentials and Encryption Key:**
-  * The credentials file (`vcCredentials.xml`) is encrypted using a shared encryption key (`encryptionKey.key`). This setup allows multiple administrators and automated tasks to access the same credentials securely.
-  * **Secure Storage:** Ensure both the encryption key and encrypted credentials files are stored in secure locations with restricted access permissions.
-  * **NTFS Permissions:** Restrict access to the following files to only authorized users and groups:
-    * **Encryption Key:** `C:\Secure\Credentials\encryptionKey.key`
-    * **Encrypted Credentials:** `C:\Secure\Credentials\vcCredentials.xml`
+  * The credentials file (`vcCredentials.xml`) is encrypted using a shared encryption key (`encryptionKey.key`).
+  * This setup allows multiple administrators and automated tasks to access the same credentials securely.
+* **Secure Storage:**
+  * Ensure both the encryption key and encrypted credentials files are stored in secure locations with restricted access permissions.
+  * Regularly audit the permissions to confirm that only authorized users have access.
+* **NTFS Permissions:**
+  * The script automatically sets the permissions on the encryption key file so that only the current user has full control.
+  * If multiple users or services need access to the encryption key, you must manually adjust the file permissions to include those users or service accounts.
+  * Similarly, ensure that the encrypted credentials file (`vcCredentials.xml`) is secured appropriately.
 
 **Example PowerShell Commands to Set Permissions:**
-
 ```powershell
-# Restrict access to the encryption key
+# Grant additional user access to the encryption key
 $keyFile = "C:\Secure\Credentials\encryptionKey.key"
 $acl = Get-Acl -Path $keyFile
-$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule ($currentUser, "FullControl", "Allow")
-$acl.SetAccessRule($rule)
+$additionalUser = "DOMAIN\UserName"  # Replace with the user or group you want to grant access
+$accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+    $additionalUser,
+    [System.Security.AccessControl.FileSystemRights]::FullControl,
+    [System.Security.AccessControl.InheritanceFlags]::None,
+    [System.Security.AccessControl.PropagationFlags]::None,
+    [System.Security.AccessControl.AccessControlType]::Allow
+)
+$acl.AddAccessRule($accessRule)
 Set-Acl -Path $keyFile -AclObject $acl
 
-# Restrict access to the credentials file
+# Grant additional user access to the credentials file
 $credFile = "C:\Secure\Credentials\vcCredentials.xml"
 $acl = Get-Acl -Path $credFile
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule ($currentUser, "FullControl", "Allow")
-$acl.SetAccessRule($rule)
+$additionalUser = "DOMAIN\UserName"  # Replace with the user or group you want to grant access
+$accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+    $additionalUser,
+    [System.Security.AccessControl.FileSystemRights]::FullControl,
+    [System.Security.AccessControl.InheritanceFlags]::None,
+    [System.Security.AccessControl.PropagationFlags]::None,
+    [System.Security.AccessControl.AccessControlType]::Allow
+)
+$acl.AddAccessRule($accessRule)
 Set-Acl -Path $credFile -AclObject $acl
 ```
 
@@ -314,9 +339,19 @@ Set-Acl -Path $credFile -AclObject $acl
    * Ensure that the encryption key is sufficiently random and protected against unauthorized access.
 6. **Educate Administrators:**
    * Train all administrators on the importance of securing the encryption key and encrypted credentials, and the protocols for handling sensitive information.
+7. **Secure Transfer of Sensitive Files:**
+   - When copying the encryption key or credentials files between systems, ensure you use secure methods (e.g., encrypted transfer protocols or secure removable media).
+
+**Important:** Always follow best practices for security when handling encryption keys and sensitive credentials. Unauthorized access to these files can compromise the security of your systems.
 
 ## Contributing
 Contributions are welcome! If you have suggestions for improvements or encounter [issues](https://github.com/virtualox/vm-balancer/issues), please open an issue or submit a [pull request](https://github.com/virtualox/vm-balancer/pulls).
+
+## License
+
+This project is licensed under the terms of the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). You are free to use, modify, and distribute this software under certain conditions.
+
+**Note:** If you distribute modified versions of this script, you must also distribute the source code under the same license.
 
 ## Acknowledgements
 * **[VMware](https://github.com/vmware) PowerCLI:** The foundation for automating vSphere tasks.
