@@ -6,6 +6,17 @@
     This script creates a 256-bit (32-byte) encryption key using a cryptographically secure random number generator.
     The key is saved to a specified file path and should be securely stored with restricted access permissions.
 
+.PARAMETER EncryptionKeyPath
+    The file path where the encryption key will be stored. Default is "C:\Secure\Credentials\encryptionKey.key".
+
+.EXAMPLE
+    .\Generate-EncryptionKey.ps1
+    Generates an encryption key and saves it to the default path.
+
+.EXAMPLE
+    .\Generate-EncryptionKey.ps1 -EncryptionKeyPath "D:\Keys\MyEncryptionKey.key"
+    Generates an encryption key and saves it to the specified path.
+
 .AUTHOR
     virtualox
 
@@ -15,21 +26,16 @@
 .LICENSE
     This script is licensed under the GPL-3.0 License. See the LICENSE file for more information.
 
-.USAGE
-    .\Generate-EncryptionKey.ps1
-
 .NOTES
     - Ensure the encryption key file is stored in a secure location with restricted access.
     - This key is required for both encrypting and decrypting the vCenter credentials.
     - Do not share the encryption key file publicly or store it in insecure locations.
 #>
 
-# === Configuration Variables ===
-
-# Path where the encryption key will be stored
-$encryptionKeyPath = "C:\Secure\Credentials\encryptionKey.key" # <-- Update this path
-
-# === End of Configuration Variables ===
+[CmdletBinding()]
+param (
+    [string]$EncryptionKeyPath = "C:\Secure\Credentials\encryptionKey.key"
+)
 
 # Function to check if the encryption key already exists
 function Test-EncryptionKeyExists {
@@ -47,11 +53,20 @@ function Generate-EncryptionKey {
     try {
         # Create a 32-byte (256-bit) key
         $key = New-Object byte[] 32
-        [System.Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($key)
-        
+
+        # Use the appropriate RNG method based on .NET version
+        if ([System.Security.Cryptography.RandomNumberGenerator].GetMethod('Fill', [Type[]]@([Byte[]]))) {
+            # For .NET Core and .NET 5+
+            [System.Security.Cryptography.RandomNumberGenerator]::Fill($key)
+        }
+        else {
+            # For .NET Framework
+            [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($key)
+        }
+
         # Save the key to the specified path
-        $key | Set-Content -Path $Path -Encoding Byte -Force
-        
+        Set-Content -Path $Path -Value $key -Encoding Byte -Force
+
         Write-Output "Encryption key successfully generated and saved to '$Path'."
     }
     catch {
@@ -60,10 +75,28 @@ function Generate-EncryptionKey {
     }
 }
 
+# Function to check if running as administrator
+function Test-IsAdministrator {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
 # Main Execution
-if (Test-EncryptionKeyExists -Path $encryptionKeyPath) {
-    Write-Warning "Encryption key already exists at '$encryptionKeyPath'."
-    $userInput = Read-Host "Do you want to overwrite the existing key? (Y/N)"
+
+# Check if running as administrator
+if (-not (Test-IsAdministrator)) {
+    Write-Warning "You need to run this script as an Administrator to set file permissions."
+    exit 1
+}
+
+if (Test-EncryptionKeyExists -Path $EncryptionKeyPath) {
+    Write-Warning "Encryption key already exists at '$EncryptionKeyPath'."
+
+    do {
+        $userInput = Read-Host "Do you want to overwrite the existing key? (Y/N)"
+    } until ($userInput -match '^[YyNn]$')
+
     if ($userInput -ne 'Y' -and $userInput -ne 'y') {
         Write-Output "Operation cancelled by the user."
         exit
@@ -71,7 +104,7 @@ if (Test-EncryptionKeyExists -Path $encryptionKeyPath) {
 }
 
 # Ensure the directory exists
-$directory = Split-Path -Path $encryptionKeyPath -Parent
+$directory = Split-Path -Path $EncryptionKeyPath -Parent
 if (-not (Test-Path -Path $directory)) {
     try {
         New-Item -Path $directory -ItemType Directory -Force | Out-Null
@@ -84,19 +117,35 @@ if (-not (Test-Path -Path $directory)) {
 }
 
 # Generate the encryption key
-Generate-EncryptionKey -Path $encryptionKeyPath
+Generate-EncryptionKey -Path $EncryptionKeyPath
 
 # Secure the encryption key file by setting appropriate permissions
 try {
-    $acl = Get-Acl -Path $encryptionKeyPath
-    # Define the access rule: Only the current user has full control
     $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $permission = "$currentUser","FullControl","Allow"
-    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
-    $acl.SetAccessRule($accessRule)
-    Set-Acl -Path $encryptionKeyPath -AclObject $acl
-    Write-Output "Set restricted permissions on '$encryptionKeyPath'."
+
+    # Secure the encryption key file
+    $aclFile = Get-Acl -Path $EncryptionKeyPath
+
+    # Remove all existing permissions except for the current user
+    $accessRules = $aclFile.Access | Where-Object { $_.IdentityReference -ne $currentUser }
+    foreach ($rule in $accessRules) {
+        $aclFile.RemoveAccessRule($rule)
+    }
+
+    # Define the access rule: Only the current user has full control
+    $accessRuleFile = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        $currentUser,
+        [System.Security.AccessControl.FileSystemRights]::FullControl,
+        [System.Security.AccessControl.InheritanceFlags]::None,
+        [System.Security.AccessControl.PropagationFlags]::None,
+        [System.Security.AccessControl.AccessControlType]::Allow
+    )
+    $aclFile.SetAccessRuleProtection($true, $false)
+    $aclFile.SetAccessRule($accessRuleFile)
+    Set-Acl -Path $EncryptionKeyPath -AclObject $aclFile
+
+    Write-Output "Set restricted permissions on '$EncryptionKeyPath'."
 }
 catch {
-    Write-Warning "Failed to set permissions on '$encryptionKeyPath'. Please ensure it is secured properly."
+    Write-Warning "Failed to set permissions on '$EncryptionKeyPath'. Please ensure it is secured properly."
 }
